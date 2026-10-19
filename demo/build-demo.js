@@ -121,8 +121,9 @@ const PLAT_LABEL = { wy: '网易云', tx: 'QQ', kw: '酷我', kg: '酷狗', mg: 
   let html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
   html = html.replace(/<!--scan-->[\s\S]*?<!--\/scan-->/g, ''); // 剥除「更新」扫描按钮段（与外网部署同一手段）
   // Pages 项目站挂在 /lx-hub/ 子路径下，资源必须用相对路径（绝对 /style.css 会 404 丢样式）
-  html = html.split('href="/style.css"').join('href="style.css"');
-  html = html.split('src="/app.js"').join('src="app.js"');
+  // 兼容缓存版本参数（v1.1.0 起引用带 ?v=N）：保留 ?v=，仅去绝对路径前缀
+  html = html.replace(/href="\/style\.css(\?v=\d+)?"/, 'href="style.css$1"');
+  html = html.replace(/src="\/app\.js(\?v=\d+)?"/, 'src="app.js$1"');
   html = html.replace('<title>LX 音源</title>', '<title>LX 音源 · 在线演示</title>');
   html = html.replace('<h1>LX 音源</h1>', '<h1>LX 音源 · 在线演示</h1>');
   html = html.replace(
@@ -132,8 +133,8 @@ const PLAT_LABEL = { wy: '网易云', tx: 'QQ', kw: '酷我', kg: '酷狗', mg: 
     '暂无数据。点击右上角「立即搜索」开始收集，或在后台配置里添加仓库与种子链接。',
     '本次实测暂无可用音源，等待下一轮自动更新。');
   html = html.replace('<footer>\n', '<footer>\n    🌐 本页为 lx-hub 在线演示（数据每日自动实测更新）· <a href="https://github.com/zlyon/lx-hub" target="_blank" rel="noopener">GitHub 仓库</a><br>\n');
-  html = html.replace('<script src="app.js"></script>',
-    '<script src="demo-shim.js"></script>\n<script src="app.js"></script>');
+  html = html.replace(/<script src="app\.js(\?v=\d+)?"><\/script>/,
+    '<script src="demo-shim.js"></script>\n<script src="app.js$1"></script>');
   if (html.indexOf('demo-shim.js') < 0 || html.indexOf('<!--scan-->') >= 0 ||
       /href="\//.test(html) || /src="\//.test(html)) {
     throw new Error('index.html 演示适配失败（shim 注入、scan 剥除或绝对路径残留未通过检查）');
