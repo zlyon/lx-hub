@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LX 音源</title>
+<link rel="stylesheet" href="/style.css">
+<script>
+/* 尽早应用主题，避免刷新时闪一下错色 */
+(function () {
+  try {
+    var t = localStorage.getItem("lxhub-theme") || "system";
+    var sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = t === "system" ? (sysDark ? "dark" : "light") : t;
+  } catch (e) { }
+})();
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>LX 音源</h1>
+      <div class="sub">聚合公开渠道发布的洛雪自定义音源链接 · 只索引可达性与元数据，不提供任何音乐内容</div>
+    </div>
+    <div class="btns">
+      <select id="themeSel" title="主题">
+        <option value="system">跟随系统</option>
+        <option value="dark">暗色</option>
+        <option value="light">亮色</option>
+      </select>
+      <!--scan-->
+      <button class="primary" id="btnTasks">更新 <span style="opacity:.55">▾</span></button>
+      <div class="menu" id="taskMenu">
+        <div class="menu-item" data-task="crawl">
+          <b>立即搜索</b><span class="muted">发现新源并全量刷新 · 较慢</span>
+        </div>
+        <div class="menu-item" data-task="check">
+          <b>重新检测</b><span class="muted">复核已收录链接死活 · 较快</span>
+        </div>
+      </div>
+      <!--/scan-->
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><b id="stTotal">0</b><span>收录链接</span></div>
+    <div class="stat"><b id="stAlive">0</b><span>当前可访问</span></div>
+    <div class="stat"><b id="stValid">0</b><span>疑似音源脚本</span></div>
+    <div class="stat is-time"><b id="stCrawl">—</b><span>最近搜索</span></div>
+  </div>
+
+  <div class="prog" id="prog" style="display:none">
+    <div class="prog-head">
+      <b id="pTitle">任务进行中</b>
+      <span id="pMsg" class="muted"></span>
+      <span id="pElapsed" class="muted"></span>
+      <button id="btnCancel" style="margin-left:auto">取消任务</button>
+    </div>
+    <div class="bar"><div class="bar-fill" id="pBar"></div></div>
+    <div class="muted" id="pStats">…</div>
+  </div>
+
+  <div class="toolbar" id="toolbar">
+    <input type="text" id="q" placeholder="搜索名称 / 作者 / 链接…">
+    <select id="st">
+      <option value="all">全部状态</option>
+      <option value="alive">可用</option>
+      <option value="suspect">存疑</option>
+      <option value="down">后端挂</option>
+      <option value="dead">失效</option>
+    </select>
+    <select id="tp">
+      <option value="src">音源与存疑</option>
+      <option value="source">仅音源</option>
+      <option value="unk">仅存疑</option>
+      <option value="all">全部记录</option>
+    </select>
+    <label class="muted" id="pfxWrap" style="white-space:nowrap">
+      <input type="checkbox" id="pfxOn"> 加速前缀</label>
+    <button id="btnExportZip" title="将当前筛选出的音源脚本打包成 ZIP；清空搜索与筛选则导出全部">导出 ZIP</button>
+    <span class="hint" id="modeTip"></span>
+  </div>
+
+  <div class="list">
+    <div class="grid-row thead" id="thead">
+      <span class="c-no" data-sort="no">#</span>
+      <span class="c-st" data-sort="status">状态</span>
+      <span class="c-name" data-sort="name">名称</span>
+      <span class="c-plat" data-sort="plat">疑似平台</span>
+      <span class="c-ver" data-sort="ver">版本</span>
+      <span class="c-auth" data-sort="auth">作者</span>
+      <span class="c-upd" data-sort="upd">更新</span>
+      <span class="c-act">操作</span>
+    </div>
+    <div id="rows"></div>
+  </div>
+  <div class="empty" id="empty" style="display:none">
+    <p>暂无数据。点击右上角「立即搜索」开始收集，或在后台配置里添加仓库与种子链接。</p>
+  </div>
+
+  <!-- 导出 ZIP 打包浮层：打包期间显示，完成后触发浏览器下载（可被 IDM 等下载工具接管） -->
+  <div id="zipMask" style="display:none">
+    <div class="zip-card">
+      <div class="zip-spin"></div>
+      <span id="zipMsg">正在打包…</span>
+    </div>
+  </div>
+
+  <footer>
+    本工具仅收录并检查互联网上<b>已公开发布</b>的音源脚本链接：元数据（名称/版本/作者等）来自脚本头部注释，「可用性」仅指链接可下载、脚本文本可解析。
+    本工具不存储、不解析、不提供任何音乐内容，也不验证音源能否获取平台付费歌曲；导入外部音源脚本的合规与安全风险由使用者自行承担。
+  </footer>
+</div>
+
+<dialog id="dlg">
+  <button class="dlg-x" onclick="dlg.close()" title="关闭">&times;</button>
+  <div class="dlg-hd">
+    <h2 id="dName">—</h2>
+    <div class="dlg-sub" id="dSub">—</div>
+  </div>
+  <div class="dlg-body">
+    <dl class="group">
+      <h3>状态</h3>
+      <div class="kv">
+        <dt>可用状态</dt><dd id="dStatus">—</dd>
+        <dt>后端</dt><dd id="dApi">—</dd>
+        <dt>类型</dt><dd id="dType">—</dd>
+        <dt>平台实测</dt><dd id="dPlats" style="display:none;flex-wrap:wrap;gap:6px">—</dd>
+      </div>
+    </dl>
+    <dl class="group">
+      <h3>来源</h3>
+      <div class="kv">
+        <dt>链接</dt><dd>
+          <div class="url-box">
+            <input type="text" id="dUrl" readonly>
+            <button id="dCopyUrl" style="padding:5px 10px;font-size:12px">复制</button>
+          </div>
+        </dd>
+        <dt>镜像</dt><dd id="dMirrors">—</dd>
+        <dt>同名变体</dt><dd id="dVars">—</dd>
+        <dt>发现自</dt><dd id="dOrigin">—</dd>
+      </div>
+    </dl>
+    <dl class="group">
+      <h3>元信息</h3>
+      <div class="kv">
+        <dt>编号</dt><dd id="dId">—</dd>
+        <dt>大小</dt><dd id="dSize">—</dd>
+        <dt>SHA256</dt><dd id="dHash" class="muted mono">—</dd>
+        <dt>发现时间</dt><dd id="dFirst">—</dd>
+        <dt>最近检测</dt><dd id="dCheck">—</dd>
+      </div>
+    </dl>
+    <dl class="group">
+      <h3>脚本头部内容（截取）</h3>
+      <pre id="dPre"></pre>
+    </dl>
+  </div>
+  <div class="dlg-ft">
+    <button id="dCopy" class="primary">复制链接</button>
+    <button onclick="dlg.close()">关闭</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+<script src="/app.js?v=2"></script>
+</body>
+</html>

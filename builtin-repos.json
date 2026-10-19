@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-18",
+  "note": "lx-hub 内置收录来源清单：与插件「音源猎手」同一套精选，由维护者定期审计更新；服务端自动拉取热应用，无需更新镜像",
+  "repos": [
+    { "repo": "guoyue2010/lxmusic-" },
+    { "repo": "LXJ-George666/LXMusic-Yinyuan" },
+    { "repo": "Macrohard0001/lx-ikun-music-sources" },
+    { "repo": "NeoDtime/lxmusic-source3" },
+    { "repo": "haonanren118/jiexiang-Music-Source" },
+    { "repo": "pronii/lx-music-qdy-mini" },
+    { "repo": "wzh15802/lxmusic" },
+    { "repo": "ShaneLee-9/lx-music-source-merge" },
+    { "repo": "kayee0212/lx-music-yinyuan" },
+    { "repo": "luanmuc/lx-music-source" },
+    { "repo": "Lingeng27/lx-music-1010-source" },
+    { "repo": "shiliu6924/lx-music-source" },
+    { "repo": "fengs2021/lx-music-merged-source" }
+  ]
+}

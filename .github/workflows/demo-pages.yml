@@ -1,0 +1,57 @@
+name: Demo Pages
+
+# 在线演示站：定时扫描公开音源 + 沙箱实测 → 生成静态页面 → 发布到 GitHub Pages。
+# 与 Docker 镜像无关（Dockerfile 不含 demo/ 目录）。
+
+on:
+  schedule:
+    - cron: '17 20 * * *' # 每日 UTC 20:17（北京时间 04:17，避开整点调度高峰）
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['demo/**', 'lib/**', 'public/**', '.github/workflows/demo-pages.yml']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Scan & sandbox-verify sources
+        run: node demo/build-demo.js
+        env:
+          # 专属 PAT（仓库 Secrets 中的 DEMO_GH_TOKEN）：API 限额 5000/h；
+          # 未配置时回退匿名限额（60/h，小仓库仍可跑）。仓库自身操作仍用内置 GITHUB_TOKEN。
+          GITHUB_TOKEN: ${{ secrets.DEMO_GH_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: demo/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,8 @@
+node_modules/
+data/
+*.log
+.DS_Store
+_shots/
+demo/.data/
+demo/dist/
+.env

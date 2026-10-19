@@ -1,0 +1,15 @@
+services:
+  lxhub:
+    image: ghcr.io/zlyon/lx-hub:latest
+    container_name: lx-hub
+    restart: unless-stopped
+    ports:
+      - "58059:58059"
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=Asia/Shanghai
+      - LXHUB_HOST=0.0.0.0
+      - LXHUB_PORT=58059
+      - LXH_ADMIN_USER=${LXH_ADMIN_USER:-admin}
+      - LXH_ADMIN_PASS=${LXH_ADMIN_PASS:-admin888}
