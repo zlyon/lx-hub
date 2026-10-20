@@ -1,6 +1,6 @@
 # 音源猎手 · 自部署版（lx-hub）
 
-![License](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-orange)
+![Version](https://img.shields.io/badge/version-1.2.0-blue) ![License](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-orange)
 
 [音源猎手](https://github.com/zlyon/lx-hunter) 的自部署 Web 版：一键搜索公开渠道发布的洛雪（LX Music）自定义音源，自动实测各平台可用性，可一键打包导出全部可用音源 JS 文件。只索引公开链接与元数据，不提供、不存储任何音乐内容。插件负责在 [Songloft](https://github.com/songloft-org/songloft) 中用源，本项目负责在 Web 侧发现源、验源。
 
@@ -13,9 +13,26 @@
 - **一键搜索**：扫描内置 43 个 + 自定义 GitHub 仓库，自动发现音源脚本并提取元数据
 - **实测验源**：脚本放进沙箱真实加载，逐平台实测能否取到音频；列表只标实测通过的平台，取不到的标「存疑」
 - **一键打包导出**：全部可用音源 JS 打成一个 ZIP，同名源根目录只放最新版，旧版归入「疑似早期版本」子目录
+- **音源灌入**（测试阶段）：实测可用的音源一键批量灌入自建洛雪服务端，支持灌入与一键撤回
 - **定时任务**：每天 / 每 N 天 / 每周 / 每月到点自动搜索 + 检测，运行日志自动留存
 - **后台管理**：账号密码登录；仓库增删、代理 / 镜像 / jsDelivr 线路、调试日志、外网部署开关（勾选后前台移除扫描入口）
 - **加速下载**：复制 / 下载 / 导出可选拼接 gh-proxy 形态镜像前缀，兼容器内直连、代理、jsDelivr 多线路
+
+## 音源灌入（测试阶段）
+
+后台「灌入」页可把本系统收录并实测可用的音源脚本**直推**到你自建的洛雪服务端（内容直推，目标服务端无需访问外网），支持灌入与一键撤回；同名重灌 = 覆盖，同版本已灌自动跳过。目前支持三类服务端：
+
+| 类型 | 适用服务端 | 地址填什么 | 凭据填什么 | 用户名 |
+| --- | --- | --- | --- | --- |
+| LX Server | XCQ0607 / gefl24 及同协议版本 | `http://IP:端口` | 服务端后台管理密码（`ADMIN_PASSWORD`） | 留空即灌入公共源 |
+| HollyMusic | [redcatH/HollyMusic](https://github.com/redcatH/HollyMusic) | `http://IP:端口` | 管理员密码 | 默认 `admin` |
+| Ro | [leizi914599611-boop/ro](https://github.com/leizi914599611-boop/ro) | `http://IP:端口` | API Key（`config.yaml` 的 `auth.apiKey` 或环境变量 `RO_AUTH_APIKEY`） | 留空 |
+
+![灌入页面](docs/push-admin.png)
+
+使用流程：后台「灌入」页添加目标（选类型、填地址和凭据，可先「测试连接」）→ 保存后下方生成该目标的标签页 → 在「灌入」面板勾选音源批量直推；切到「已灌入」面板可随时撤回（只撤本系统灌入的音源，不影响手动添加的源）。
+
+> 功能为测试阶段，有问题请带「运行日志」页的日志反馈。
 
 ## 部署
 
