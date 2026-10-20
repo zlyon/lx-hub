@@ -1,8 +1,8 @@
 'use strict';
 // lx-hub 在线演示构建脚本（跑在 GitHub Actions 上，产出纯静态站点 demo/dist/）
-// 流程：复用 lib/core.js 完整搜索链路（扫描内置仓库 → 识别聚合）→ 复用 lib/sandbox.js
-//      沙箱逐平台实测取链 → 只保留「至少一个平台实测取到音频」的条目 → 生成
-//      data.json + sources.zip + 单源下载文件。
+// 流程：复用 lib/core.js 完整搜索链路（扫描来源池 = 内置清单热更新 + 社区优选 + 兜底内置仓库
+//      → 识别聚合）→ 复用 lib/sandbox.js 沙箱逐平台实测取链 → 只保留「至少一个平台实测取到音频」
+//      的条目 → 生成 data.json + sources.zip + 单源下载文件。
 // 页面方案：逐字复用真前端 public/{index.html,style.css,app.js}，仅注入 demo/shim.js
 //      拦截 /api/* 用静态数据应答——样式与自部署版完全一致，更新/设置按钮自动去除
 //      （scan 段剥除 + authed=false 时设置按钮不创建）。
@@ -28,7 +28,7 @@ function log(msg) {
 const PLAT_LABEL = { wy: '网易云', tx: 'QQ', kw: '酷我', kg: '酷狗', mg: '咪咕' };
 
 (async () => {
-  // 冒烟测试支持：DEMO_REPO_LIMIT=N 只扫前 N 个内置仓库
+  // 冒烟测试支持：DEMO_REPO_LIMIT=N 只扫前 N 个内置仓库（跳过来源池热更新，保持快而可预期）
   const repoLimit = Number(process.env.DEMO_REPO_LIMIT) || 0;
   if (repoLimit > 0 && store.BUILTIN_REPOS.length > repoLimit) {
     store.BUILTIN_REPOS.length = repoLimit;
@@ -39,6 +39,37 @@ const PLAT_LABEL = { wy: '网易云', tx: 'QQ', kw: '酷我', kg: '酷狗', mg: 
   // Actions 的 GITHUB_TOKEN 提升 GitHub API 限额（60→1000/小时）
   if (process.env.GITHUB_TOKEN) db.config.ghToken = process.env.GITHUB_TOKEN;
   db.config.autoCheck = false; // 搜索与检测分开控制，便于打日志
+
+  // ---- 0. 扫描来源池：内置清单（远端热更新）+ 社区优选（lx-hunter-market）----
+  // 来源随两个上游清单动态变化，不依赖随镜像写死的兜底清单（远端拉取失败才回退）。
+  // 社区优选条目：仓库 → 并入扫描仓库；.js 直链 / 发布页 → 并入种子（发布页由 extractLinks 二级跟进提取直链）。
+  let scannedRepos = store.BUILTIN_REPOS.length;
+  if (!repoLimit) {
+    log('拉取扫描来源池（内置清单 + 社区优选）…');
+    try { await core.checkBuiltinManifest(db.config, core.DEFAULT_UA); }
+    catch (e) { log('内置清单拉取失败，回退随镜像清单: ' + (e.message || e)); }
+    const market = await core.fetchMarketList(db.config, core.DEFAULT_UA, true).catch(() => null);
+    let merged = 0;
+    if (market && market.ok) {
+      const builtinNow = core.currentBuiltinRepos(db);
+      for (const it of (market.items || [])) {
+        const url = String(it.url || '');
+        if (it.type === 'repo' && /^[\w.\-]+\/[\w.\-]+$/.test(it.repo || '')) {
+          if (builtinNow.indexOf(it.repo) < 0 && (db.config.repos || []).indexOf(it.repo) < 0) {
+            (db.config.repos = db.config.repos || []).push(it.repo);
+            merged++;
+          }
+        } else if ((it.type === 'js' || it.type === 'page') && /^https?:\/\//i.test(url)) {
+          if ((db.config.seeds || []).indexOf(url) < 0) {
+            (db.config.seeds = db.config.seeds || []).push(url);
+            merged++;
+          }
+        }
+      }
+    }
+    scannedRepos = Array.from(new Set([].concat(core.currentBuiltinRepos(db), db.config.repos || []))).length;
+    log('扫描来源池就绪：' + scannedRepos + ' 个来源（社区优选并入 ' + merged + ' 条' + (market && market.ok ? '' : '；市场清单拉取失败，仅用内置清单') + '）');
+  }
 
   // ---- 1. 搜索（扫描仓库 → 下载候选 → 识别 → 聚合去重） ----
   log('开始搜索公开音源…');
@@ -105,7 +136,7 @@ const PLAT_LABEL = { wy: '网易云', tx: 'QQ', kw: '酷我', kg: '酷狗', mg: 
   const data = {
     generatedAt: new Date().toISOString(),
     durationSec: Math.round((Date.now() - t0) / 1000),
-    scannedRepos: store.BUILTIN_REPOS.length,
+    scannedRepos: scannedRepos,
     totalEntries: db.entries.length,
     usableCount: usable.length,
     platformStats: platCount,
