@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LX 音源 • 后台</title>
-<link rel="stylesheet" href="/style.css?v=3">
+<link rel="stylesheet" href="/style.css?v=4">
 <script>
 (function () {
   var pref = localStorage.getItem('lxhub-theme') || 'system';
@@ -51,7 +51,7 @@
     <div class="side-foot">
       <a class="foot-btn" href="/">🌐 前台首页</a>
       <a href="#" id="logoutBtn" class="foot-btn">退出登录</a>
-      <div class="foot-line">lx-hub v1.1.0 · 作者 zlyon</div>
+      <div class="foot-line">lx-hub v1.2.0 · 作者 zlyon</div>
       <a class="foot-about" href="https://github.com/zlyon/lx-hub" target="_blank" rel="noopener">ℹ️ 关于 · GitHub 仓库</a>
     </div>
   </aside>
@@ -297,14 +297,15 @@
       </div>
     </section>
 
-    <!-- 灌入：把实测可用的音源脚本直推到各洛雪服务端变种（LX Server / HollyMusic / Ro / 知音） -->
+    <!-- 灌入：把实测可用的音源脚本直推到各洛雪服务端变种（LX Server / HollyMusic / Ro） -->
+    <!-- 结构复刻插件版：默认只显示目标管理；添加目标后在下方出现对应标签，每个标签内是灌入+已灌入两块 -->
     <section class="view" id="view-push" style="display:none">
       <div class="panel">
-        <div class="p-head head-wrap"><span>📤</span><span class="t">灌入目标</span><span class="right">把 lx-hub 收录并实测可用的音源脚本（直推内容，目标服务端无需访问外网）推送到你自部署的洛雪服务端。同名音源重灌 = 覆盖；已灌入且未变更的自动跳过</span></div>
+        <div class="p-head head-wrap"><span>📤</span><span class="t">灌入目标</span><span class="right">把 lx-hub 收录并实测可用的音源脚本（直推内容，目标服务端无需访问外网）推送到你自部署的洛雪服务端。同名音源重灌 = 覆盖；已灌入且未变更的自动跳过。添加并保存目标后，下方会出现该目标的灌入 / 撤回面板</span></div>
         <ul class="repo-list" id="pushTargets"><li class="grow-empty">加载中…</li></ul>
         <div class="form-row">
           <input type="text" id="ptName" placeholder="备注名（可选）" style="width:130px">
-          <select id="ptType" style="width:190px"></select>
+          <select id="ptType" style="width:150px"></select>
           <input type="text" id="ptUrl" placeholder="http://192.168.x.x:端口" style="width:220px">
           <input type="text" id="ptToken" placeholder="凭据（密码 / API Key / 令牌）" style="width:180px">
           <input type="text" id="ptUser" placeholder="用户名（可选）" style="width:110px">
@@ -314,29 +315,16 @@
         <div class="hint" id="ptHint" style="margin-top:6px"></div>
       </div>
 
-      <div class="panel">
-        <div class="p-head"><span>🚀</span><span class="t">批量灌入</span><span class="right" id="pushScanInfo">—</span></div>
-        <div class="form-row" style="flex-wrap:wrap">
-          <label class="chk"><input type="checkbox" id="pushScopeAll" checked> 灌入<b>全部实测可用</b>音源（不勾选则只灌下方勾选的）</label>
-        </div>
-        <div class="lib-list" style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:10px">
-          <table style="width:100%">
-            <thead><tr><th style="width:40px"></th><th>名称</th><th style="width:110px">状态</th><th style="width:120px">灌入状态</th></tr></thead>
-            <tbody id="pushEntryRows"><tr><td colspan="4" class="muted" style="text-align:center;padding:16px">加载中…</td></tr></tbody>
-          </table>
-        </div>
-        <div class="btns" style="margin-top:12px;display:flex;gap:10px;align-items:center">
-          <button id="btnPushStart" class="ok">🚀 开始灌入</button>
-          <button id="btnPushRefresh" type="button" class="ghost">↻ 刷新列表</button>
-          <span class="hint" id="pushSelInfo"></span>
-        </div>
-        <div class="hint" style="margin-top:10px">灌入进度见顶部任务条与「运行日志」页；同名重灌=覆盖，同版本已灌自动跳过</div>
+      <!-- 每目标一组：标签 + 灌入/已灌入两块（JS 动态渲染，结构复刻插件 imp-tab） -->
+      <div id="pushTabsWrap" style="display:none">
+        <div class="imp-tabs" id="pushTabs"></div>
+        <div id="pushPanes"></div>
       </div>
     </section>
   </main>
 </div>
 
 <div id="toast"></div>
-<script src="/admin.js?v=6"></script>
+<script src="/admin.js?v=7"></script>
 </body>
 </html>

@@ -452,6 +452,27 @@ a.market-cta:hover { filter: brightness(1.1); }
 #schedBody.off input, #schedBody.off select { background: var(--chip); cursor: not-allowed; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 
+/* ===== 灌入页：目标标签（复刻插件 imp-tab）+ 灌入/已灌入两块 ===== */
+.imp-tabs { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.imp-tab { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--panel);
+  color: var(--text); border-radius: 999px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+.imp-tab:hover { border-color: var(--accent); }
+.imp-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.imp-tab .badge { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 10px; font-size: 11px; font-weight: 500; }
+.imp-tab.active .badge { background: rgba(255,255,255,.25); color: #fff; }
+.imp-tab .ico { display: inline-flex; }
+.imp-tab .ico svg { width: 17px; height: 17px; display: block; border-radius: 4px; }
+.imp-tab .t { white-space: nowrap; }
+/* 面板表格（复刻插件 tbl-wrap：圆角容器 + sticky 表头） */
+.pt-tbl-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: auto; max-height: 420px; }
+.pt-tbl-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pt-tbl-wrap th { position: sticky; top: 0; background: var(--panel-2); color: var(--text-dim); font-weight: 500; text-align: left; padding: 9px 12px; z-index: 1; white-space: nowrap; }
+.pt-tbl-wrap td { padding: 8px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
+.pt-tbl-wrap tbody tr:hover { background: var(--panel-2); }
+.pt-tbl-wrap .empty { text-align: center; color: var(--text-dim); padding: 28px 12px; }
+.pt-tbl-wrap td.pt-name { word-break: break-all; }
+.pt-time { font-family: var(--mono); font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+
 /* 窄屏顶栏 + 抽屉侧栏（复刻插件后台窄屏形态：汉堡按钮 → 侧栏覆盖滑出，不挤压内容） */
 .m-topbar { display: none; }
 .side-mask { display: none; }
@@ -485,6 +506,16 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   #view-sources .p-head .right { flex-basis: 100%; order: 9; margin-left: 0; }
   #view-sources a.market-cta .txt, #view-sources #btnMarketRefresh .txt { display: none; }
   #view-sources a.market-cta, #view-sources #btnMarketRefresh { padding: 3px 9px; margin-left: 6px !important; }
+  /* 灌入页窄屏适配（复刻插件）：说明整行落第二行、标题不竖排；标签等宽铺满；
+     灌入/已灌入表：复选框列 sticky 锁定，名称防挤压，其余列横向拖动可看 */
+  #view-push .p-head { flex-wrap: wrap; row-gap: 6px; }
+  #view-push .p-head .t { white-space: nowrap; flex-shrink: 0; }
+  #view-push .p-head .right { flex-basis: 100%; order: 9; margin-left: 0; }
+  .imp-tabs { gap: 8px; }
+  .imp-tab { flex: 1; justify-content: center; padding: 9px 8px; }
+  .pt-tbl-wrap th:first-child, .pt-tbl-wrap td:first-child { position: sticky; left: 0; background: var(--panel); width: 1%; }
+  .pt-tbl-wrap th:first-child { background: var(--panel-2); z-index: 2; }
+  .pt-tbl-wrap td.pt-name { min-width: 140px; }
 }
 
 @media (max-width: 900px) {

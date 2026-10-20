@@ -1,6 +1,6 @@
 {
   "name": "lx-hub",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "音源猎手 · 自部署 Web 版 —— 一键搜索公开洛雪自定义音源、沙箱实测验源、一键打包导出",
   "main": "server.js",
   "scripts": {

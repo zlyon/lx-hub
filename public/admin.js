@@ -660,13 +660,101 @@
     });
   });
 
-  // ---- 通用灌入（📤）：目标管理 + 批量直推内容到各洛雪服务端变种 ----
+  // ---- 通用灌入（📤）：目标管理 + 每目标一组「灌入 / 已灌入」面板（复刻插件 imp-tab 形态） ----
   var pushTypes = [];
   var pushTargetsState = [];
   var pushEditingId = null;
+  var pushActiveTab = null;
+  var pushEntriesCache = [];      // 实测可用且有脚本缓存的条目（灌入列表数据源）
+  var pushEntriesLoaded = false;
+  var pushShowDup = false;        // 复选框：显示同名多版本（默认只保留每组最新版）
+  // 标签图标：LX Server=洛雪官方绿音符；HollyMusic=其仓库 public/icon.svg（内联改名渐变 id）；Ro 无官方 logo，自绘
+  var ICO_LX = '<svg viewBox="0 0 447.942 447.943" aria-hidden="true"><path fill="#5ed698" d="M203.806.482c-19.668-3.346-35.76 11.139-35.76 31.086v206.166c-11.642-4.271-24.165-6.725-37.281-6.725-59.905 0-108.469 48.566-108.469 108.473 0 59.903 48.564 108.461 108.469 108.461 34.141 0 64.54-15.82 84.406-40.482l-49.658-49.664c-15.116-15.112-11.708-28.901-9.542-34.14 2.166-5.233 9.514-17.4 30.883-17.4h18.082v-56.885c0-21.132 14.617-38.862 34.266-43.745.032-44.373.032-81.808.032-81.808 140.147 0 131.724 83.974 115.325 132.196-6.42 18.884-2.601 22.05 10.893 7.354C536.473 77.106 298.38 16.566 203.806.482z"/><path fill="#4daf7c" d="M301.061 223.876h-50.994c-3.911 0-7.574.95-10.889 2.523-8.616 4.09-14.615 12.798-14.615 22.973v76.51h-37.708c-14.082 0-17.428 8.071-7.466 18.029l46.893 46.898 31.25 31.246a25.424 25.424 0 0 0 18.033 7.474c6.523 0 13.052-2.484 18.029-7.474l78.152-78.145c9.951-9.958 6.608-18.029-7.47-18.029h-37.71v-76.51c.001-14.078-11.42-25.495-25.505-25.495z"/></svg>';
+  var ICO_HOLLY = '<svg viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="hlyBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#hlyBg)"/><g fill="#fff"><path d="M336 128 L336 304 Q336 352 296 352 Q256 352 256 312 Q256 272 296 272 Q312 272 328 280 L328 176 L240 200 L240 336 Q240 384 200 384 Q160 384 160 344 Q160 304 200 304 Q216 304 232 312 L232 168 Z"/></g></svg>';
+  var ICO_RO = '<svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#0f766e"/><text x="256" y="330" font-family="Arial,\'Segoe UI\',sans-serif" font-size="190" font-weight="700" fill="#fff" text-anchor="middle">Ro</text></svg>';
+  var TAB_ICONS = { lxserver: ICO_LX, hollymusic: ICO_HOLLY, ro: ICO_RO };
+
   function ptTypeLabel(type) {
     for (var i = 0; i < pushTypes.length; i++) if (pushTypes[i].type === type) return pushTypes[i].label;
     return type;
+  }
+  // pushedMap 兼容两种形态：旧=纯 hash 字符串；新={hash, importedAt}
+  function pmHash(v) { return typeof v === 'string' ? v : ((v && v.hash) || ''); }
+  // 名称归一（复刻插件 normName）：全豆要[聚合音源] ≈ 全豆要|聚合音源 ≈ 全豆要聚合音源
+  function normName(s) {
+    return String(s || '').toLowerCase().replace(/[\[\]【】（）()|｜:：、,，.。\s_\-·•]+/g, '');
+  }
+  // 版本号数值化（复刻插件 verNum）：1.2.10 → 1002010
+  function verNum(e) {
+    var v = String(e.version || '').match(/\d+(\.\d+)*/);
+    if (!v) return 0;
+    var parts = v[0].split('.'), n = 0;
+    for (var j = 0; j < parts.length && j < 4; j++) n = n * 1000 + parseInt(parts[j], 10);
+    return n;
+  }
+  function updTs(e) { return e.contentUpdatedAt || e.updatedAt || 0; }
+  // 共享折叠去重（复刻插件 foldSources，口径：内容级分组 → 同名族 → 默认每族只留最新版）：
+  // ① bodySha 相同 = 同一版本，归入同组（组内按版本/时间取最优）
+  // ② 归一化同名 = 同一源的更新迭代，族内选版本最高的组做代表；复选框勾选后族内全部展开
+  function dedupEntries(list, showDup) {
+    var groups = [], byHash = {};
+    for (var i = 0; i < list.length; i++) {
+      var h = list[i].bodySha || ('#solo:' + list[i].id);
+      if (!byHash[h]) { byHash[h] = []; groups.push(byHash[h]); }
+      byHash[h].push(list[i]);
+    }
+    function cmpEntry(a, b) {
+      return verNum(b) - verNum(a) || updTs(b) - updTs(a) || String(a.id).localeCompare(String(b.id));
+    }
+    for (var g = 0; g < groups.length; g++) groups[g].sort(cmpEntry);
+    function famKey(e) {
+      // 先剥掉名称里的版本号（六音 2.0.1 / 六音v1.9 → 六音），再做分隔符归一，同名族才能跨版本合并
+      var nm = String(e.name || '').toLowerCase().replace(/v?\d+(\.\d+)+/g, '');
+      nm = normName(nm);
+      return nm ? 'n:' + nm : 'solo:' + e.id;
+    }
+    var fams = [], byFam = {};
+    for (var g2 = 0; g2 < groups.length; g2++) {
+      var fk = famKey(groups[g2][0]);
+      if (!byFam[fk]) { byFam[fk] = []; fams.push(byFam[fk]); }
+      byFam[fk].push(groups[g2]);
+    }
+    var visible = [];
+    for (var f = 0; f < fams.length; f++) {
+      var fam = fams[f];
+      if (!showDup) {
+        // 族内挑版本最高的内容组，取其最优条目作为唯一展示代表
+        var best = fam[0];
+        for (var g4 = 1; g4 < fam.length; g4++) if (cmpEntry(fam[g4][0], best[0]) < 0) best = fam[g4];
+        visible.push(best[0]);
+      } else {
+        // 勾选：同名族全部展开（同内容组内仍只留最优一条）
+        for (var g6 = 0; g6 < fam.length; g6++) visible.push(fam[g6][0]);
+      }
+    }
+    return visible;
+  }
+  function fmtDT(ts) {
+    if (!ts) return '—';
+    var d = new Date(ts);
+    function p2(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '/' + p2(d.getMonth() + 1) + '/' + p2(d.getDate()) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+  }
+  // 平台状态列：lx-hub 前台同款蓝色标签 + 实测真无损 FLAC 角标
+  function platTagsHtml(e) {
+    var PS_KEY = { '网易云': 'wy', 'QQ': 'tx', '酷我': 'kw', '酷狗': 'kg', '咪咕': 'mg' };
+    var plats = e.platforms || [];
+    if (!plats.length) return '<span class="muted">—</span>';
+    return '<div class="plats">' + plats.map(function (p) {
+      var ps = (e.platStatus || {})[PS_KEY[p] || p];
+      var badge = '';
+      if (ps && ps.lossless === 'matched') {
+        var spec = ps.losslessSpec;
+        var tip = '实测真无损' + (spec && spec.container === 'flac' && spec.bitDepth ? '（FLAC ' + spec.bitDepth + 'bit' + (spec.sampleRate ? '/' + Math.round(spec.sampleRate / 1000) + 'kHz' : '') + '）' : '');
+        badge = '<i class="flac" title="' + esc(tip) + '">FLAC</i>';
+      }
+      return '<span class="plat">' + esc(p) + badge + '</span>';
+    }).join('') + '</div>';
   }
   function loadPushTargets() {
     return fetch('/api/admin/push/targets').then(function (r) { return r.json(); }).then(function (d) {
@@ -682,7 +770,7 @@
         }
       }
       ptShowHint();
-      var html = pushTargetsState.length ? '' : '<li class="grow-empty">暂无灌入目标，用下方表单添加（支持 LX Server / HollyMusic / Ro；知音插件请在 lx-hunter 插件内灌入）</li>';
+      var html = pushTargetsState.length ? '' : '<li class="grow-empty">暂无灌入目标，用下方表单添加（支持 LX Server / HollyMusic / Ro）</li>';
       for (var j = 0; j < pushTargetsState.length; j++) {
         var t = pushTargetsState[j];
         html += '<li><span class="lock">' + (t.enabled !== false ? '📤' : '⏸') + '</span>' +
@@ -690,12 +778,11 @@
           (t.pushed ? ' <span class="rstat">已灌 ' + t.pushed + ' 条</span>' : '') + '</span>' +
           '<button type="button" class="small' + (t.enabled !== false ? '' : ' danger') + '" data-pt-toggle="' + esc(t.id) + '">' + (t.enabled !== false ? '停用' : '启用') + '</button>' +
           '<button type="button" class="small" data-pt-test="' + esc(t.id) + '">测试</button>' +
-          (t.pushed ? '<button type="button" class="small" data-pt-revoke="' + esc(t.id) + '">撤回</button>' : '') +
           '<button type="button" class="small" data-pt-edit="' + esc(t.id) + '">编辑</button>' +
           '<button type="button" class="small danger" data-pt-del="' + esc(t.id) + '">删除</button></li>';
       }
       $('pushTargets').innerHTML = html;
-      updatePushSelInfo();
+      renderPushTabs();
       return d;
     }).catch(function () { $('pushTargets').innerHTML = '<li class="grow-empty">加载失败</li>'; });
   }
@@ -762,22 +849,6 @@
         .then(function (r) { return r.json(); })
         .then(function (d) { toast(d.ok ? '✓ ' + (d.info || '连接成功') : '✗ ' + (d.error || '连接失败')); });
     })) return;
-    if (act('data-pt-revoke', function (id) {
-      var t = pushTargetsState.filter(function (x) { return x.id === id; })[0];
-      var n = t ? (t.pushed || 0) : 0;
-      if (!confirm('撤回灌入到「' + (t ? t.name : '') + '」的音源？\n将删除该目标内由本系统灌入的 ' + n + ' 条记录对应的音源，不影响你手动添加的源。')) return;
-      var btn = document.querySelector('[data-pt-revoke="' + id + '"]');
-      if (btn) { btn.disabled = true; btn.textContent = '撤回中…'; }
-      fetch('/api/admin/push/revoke', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id }) })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (btn) { btn.disabled = false; btn.textContent = '撤回'; }
-          if (d.error) { toast('✗ ' + d.error); return; }
-          var removed = (d.removed || []).length;
-          toast(d.note ? d.note : ('已撤下 ' + removed + ' 个音源' + (d.failed ? '，' + d.failed + ' 个失败' : '')));
-          loadPushTargets();
-        }).catch(function () { if (btn) { btn.disabled = false; btn.textContent = '撤回'; } toast('请求失败'); });
-    })) return;
     if (act('data-pt-edit', function (id) {
       var t = pushTargetsState.filter(function (x) { return x.id === id; })[0];
       if (!t) return;
@@ -799,76 +870,198 @@
     });
   });
 
-  // 批量灌入：条目列表（实测可用）+ 已灌状态
-  var pushEntries = [];
+  // 实测可用条目缓存（各目标灌入列表共用数据源）
   function loadPushEntries() {
-    var rows = $('pushEntryRows');
-    return Promise.all([
-      fetch('/api/entries?status=alive&type=all').then(function (r) { return r.json(); }),
-      fetch('/api/admin/push/targets').then(function (r) { return r.json(); })
-    ]).then(function (rs) {
-      var items = (rs[0].items || []).filter(function (e) { return e.hasBody; });
-      var targets = (rs[1].targets || []).filter(function (t) { return t.enabled !== false; });
-      pushTargetsState = rs[1].targets || [];
-      pushEntries = items;
-      $('pushScanInfo').textContent = '实测可用且已缓存脚本 ' + items.length + ' 个 · 启用目标 ' + targets.length + ' 个';
-      var html = '';
-      for (var i = 0; i < items.length; i++) {
-        var e = items[i];
-        var en = 0, same = 0;
-        for (var k = 0; k < targets.length; k++) {
-          var sha = (targets[k].pushedMap || {})[e.id];
-          if (sha) { en++; }
-        }
-        var st = en === 0 ? '<span class="rstat">未灌</span>'
-          : (en >= targets.length ? '<span class="rstat good">已灌入</span>' : '<span class="rstat">部分(' + en + '/' + targets.length + ')</span>');
-        html += '<tr><td><input type="checkbox" data-pe="' + esc(e.id) + '"' + ($('pushScopeAll').checked ? '' : ' checked') + '></td>' +
-          '<td title="' + esc(e.name) + '">' + esc(e.name) + '</td>' +
-          '<td>' + statusPill(e.status) + '</td>' +
-          '<td>' + st + '</td></tr>';
-      }
-      rows.innerHTML = html || '<tr><td colspan="4" class="muted" style="text-align:center;padding:16px">暂无实测可用的音源（先跑搜索 + 检测）</td></tr>';
-      updatePushSelInfo();
-    }).catch(function () { rows.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:16px">加载失败</td></tr>'; });
+    return fetch('/api/entries?status=alive&type=all').then(function (r) { return r.json(); }).then(function (d) {
+      pushEntriesCache = (d.items || []).filter(function (e) { return e.hasBody; });
+      pushEntriesLoaded = true;
+      renderPushTabs();
+      return d;
+    });
   }
-  function updatePushSelInfo() {
-    var all = $('pushScopeAll').checked;
+
+  // 每目标一组标签 + 面板（默认无目标时整块隐藏）
+  function pendingListOf(t) {
+    if (!pushEntriesLoaded) return null;
+    var pm = t.pushedMap || {};
+    var pend = [];
+    for (var k = 0; k < pushEntriesCache.length; k++) {
+      if (pmHash(pm[pushEntriesCache[k].id]) !== (pushEntriesCache[k].bodySha || '?')) pend.push(pushEntriesCache[k]);
+    }
+    return dedupEntries(pend, pushShowDup);
+  }
+  function renderPushTabs() {
+    var wrap = $('pushTabsWrap');
+    if (!pushTargetsState.length) {
+      wrap.style.display = 'none';
+      $('pushTabs').innerHTML = '';
+      $('pushPanes').innerHTML = '';
+      return;
+    }
+    wrap.style.display = '';
+    var ids = pushTargetsState.map(function (t) { return t.id; });
+    if (ids.indexOf(pushActiveTab) < 0) pushActiveTab = ids[0];
+    var html = '';
+    for (var i = 0; i < pushTargetsState.length; i++) {
+      var t = pushTargetsState[i];
+      var pl = pendingListOf(t);
+      html += '<button type="button" class="imp-tab' + (t.id === pushActiveTab ? ' active' : '') + '" data-ptab="' + esc(t.id) + '">' +
+        '<span class="ico">' + (TAB_ICONS[t.type] || '📤') + '</span><span class="t">' + esc(t.name || ptTypeLabel(t.type)) + '</span>' +
+        (pl ? '<span class="badge">' + pl.length + '</span>' : '') + '</button>';
+    }
+    $('pushTabs').innerHTML = html;
+    renderPushPane();
+  }
+  function activeTarget() {
+    for (var i = 0; i < pushTargetsState.length; i++) if (pushTargetsState[i].id === pushActiveTab) return pushTargetsState[i];
+    return null;
+  }
+  function activeTargetName() {
+    var t = activeTarget();
+    return t ? (t.name || ptTypeLabel(t.type)) : '';
+  }
+  function impRowsHtml(list) {
+    var h = '';
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      h += '<tr><td><input type="checkbox" class="chk-pt-imp" data-pe="' + esc(e.id) + '"></td>' +
+        '<td class="pt-name" title="' + esc(e.name) + '">' + esc(e.name) + '</td>' +
+        '<td>' + platTagsHtml(e) + '</td></tr>';
+    }
+    return h;
+  }
+  function revRowsHtml(list) {
+    var h = '';
+    for (var i = 0; i < list.length; i++) {
+      var e = list[i];
+      h += '<tr><td><input type="checkbox" class="chk-pt-rev" data-pe="' + esc(e.id) + '"></td>' +
+        '<td class="pt-name" title="' + esc(e.name) + '">' + esc(e.name) + '</td>' +
+        '<td>' + platTagsHtml(e) + '</td>' +
+        '<td class="pt-time">' + (e.importedAt ? fmtDT(e.importedAt) : '—') + '</td></tr>';
+    }
+    return h;
+  }
+  function renderPushPane() {
+    var t = activeTarget();
+    if (!t) { $('pushPanes').innerHTML = ''; return; }
+    var pm = t.pushedMap || {};
+    var tName = esc(t.name || ptTypeLabel(t.type));
+    // 灌入列表：实测可用且未灌入该目标（或内容已变更待重灌），折叠去重后展示
+    var pend = pendingListOf(t) || [];
+    var pushedList = t.pushedList || [];
+    var html = '<div class="panel"><div class="p-head"><span>📥</span><span class="t">灌入 ' + tName + '</span><span class="badge">' + pend.length + '</span>' +
+      '<span class="right">仅显示未灌入该目标的音源，灌入成功后移至下方；灌入进度见「源库」页任务条</span></div>' +
+      '<div class="btns" style="margin-bottom:12px">' +
+      '<button id="btnPushDo" class="ok">灌入所选</button>' +
+      '<button id="btnPushPaneRef" class="ghost">刷新</button>' +
+      '</div>' +
+      '<label class="muted" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:8px;font-size:12px;cursor:pointer">' +
+      '<input type="checkbox" id="chkShowDup"' + (pushShowDup ? ' checked' : '') + '> 显示同名多版本（默认去重，只保留每组最新版）</label>' +
+      '<div class="pt-tbl-wrap"><table><thead><tr>' +
+      '<th style="width:36px"><input type="checkbox" id="chkAllPtImp"></th><th>名称</th><th style="width:280px" class="th-nowrap">平台状态</th>' +
+      '</tr></thead><tbody id="ptImpRows">';
+    html += pend.length ? impRowsHtml(pend) : '<tr><td colspan="3" class="empty">' + (pushEntriesLoaded ? '没有待灌入的音源（实测可用且未灌入该目标）' : '加载中…') + '</td></tr>';
+    html += '</tbody></table></div></div>';
+    html += '<div class="panel"><div class="p-head"><span>↩️</span><span class="t">已灌入（可撤回）</span><span class="badge">' + pushedList.length + '</span>' +
+      '<span class="right">撤回会从该目标服务端删除对应音源，不影响你手动添加的源</span></div>' +
+      '<div class="btns" style="margin-bottom:12px">' +
+      '<button id="btnRevSel" class="ghost danger">撤回所选</button>' +
+      '<button id="btnRevAll" class="ghost">全部撤回</button>' +
+      '<button id="btnRevRef" class="ghost">刷新</button>' +
+      '</div>' +
+      '<div class="pt-tbl-wrap"><table><thead><tr>' +
+      '<th style="width:36px"><input type="checkbox" id="chkAllPtRev"></th><th>名称</th><th style="width:280px" class="th-nowrap">平台状态</th><th style="width:150px">灌入时间</th>' +
+      '</tr></thead><tbody id="ptRevRows">';
+    html += pushedList.length ? revRowsHtml(pushedList) : '<tr><td colspan="4" class="empty">暂无灌入记录</td></tr>';
+    html += '</tbody></table></div></div>';
+    $('pushPanes').innerHTML = html;
+  }
+
+  $('pushTabs').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-ptab]');
+    if (!btn) return;
+    pushActiveTab = btn.getAttribute('data-ptab');
+    renderPushTabs();
+  });
+
+  function syncHead(headId, sel) {
+    var boxes = document.querySelectorAll(sel);
     var n = 0;
-    if (!all) {
-      var boxes = document.querySelectorAll('#pushEntryRows input[data-pe]');
-      for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) n++;
-    }
-    $('pushSelInfo').textContent = all ? '将灌入全部实测可用音源到所有启用目标' : ('将灌入勾选的 ' + n + ' 个音源到所有启用目标');
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) n++;
+    var h = document.getElementById(headId);
+    if (h) h.checked = boxes.length > 0 && n === boxes.length;
   }
-  $('pushScopeAll').addEventListener('change', function () {
-    var boxes = document.querySelectorAll('#pushEntryRows input[data-pe]');
-    for (var i = 0; i < boxes.length; i++) boxes[i].checked = !this.checked;
-    updatePushSelInfo();
-  });
-  $('pushEntryRows').addEventListener('change', function (ev) {
-    if (ev.target.closest('input[data-pe]')) updatePushSelInfo();
-  });
-  $('btnPushRefresh').addEventListener('click', function () { loadPushEntries(); });
-  $('btnPushStart').addEventListener('click', function () {
-    var btn = this;
-    var all = $('pushScopeAll').checked;
-    var ids = null;
-    if (!all) {
-      ids = [];
-      var boxes = document.querySelectorAll('#pushEntryRows input[data-pe]');
-      for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) ids.push(boxes[i].getAttribute('data-pe'));
-      if (!ids.length) { toast('请先勾选要灌入的音源（或勾选「灌入全部实测可用」）'); return; }
+  $('pushPanes').addEventListener('change', function (ev) {
+    if (ev.target.id === 'chkShowDup') {
+      pushShowDup = ev.target.checked;
+      renderPushPane();
+    } else if (ev.target.id === 'chkAllPtImp') {
+      var boxes = document.querySelectorAll('#ptImpRows input.chk-pt-imp');
+      for (var i = 0; i < boxes.length; i++) boxes[i].checked = ev.target.checked;
+    } else if (ev.target.id === 'chkAllPtRev') {
+      var boxes2 = document.querySelectorAll('#ptRevRows input.chk-pt-rev');
+      for (var j = 0; j < boxes2.length; j++) boxes2[j].checked = ev.target.checked;
+    } else if (ev.target.classList && ev.target.classList.contains('chk-pt-imp')) {
+      syncHead('chkAllPtImp', '#ptImpRows input.chk-pt-imp');
+    } else if (ev.target.classList && ev.target.classList.contains('chk-pt-rev')) {
+      syncHead('chkAllPtRev', '#ptRevRows input.chk-pt-rev');
     }
-    var text = all ? '将把全部实测可用音源灌入所有启用目标？\n同名重灌=覆盖，同版本已灌自动跳过。' : '将把勾选的 ' + ids.length + ' 个音源灌入所有启用目标？';
-    if (!confirm(text)) return;
-    btn.disabled = true; btn.textContent = '启动中…';
-    fetch('/api/admin/push/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ entryIds: ids }) })
+  });
+
+  function checkedIds(sel) {
+    var out = [];
+    var boxes = document.querySelectorAll(sel);
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) out.push(boxes[i].getAttribute('data-pe'));
+    return out;
+  }
+  function startPush(targetId, entryIds, btn) {
+    btn.disabled = true;
+    fetch('/api/admin/push/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ targets: [targetId], entryIds: entryIds }) })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        btn.disabled = false; btn.textContent = '🚀 开始灌入';
+        btn.disabled = false;
         if (d.error) { toast(d.error); return; }
-        toast('灌入任务已启动（' + d.targets + ' 个目标 × ' + d.entries + ' 个音源），进度见顶部任务条');
-      }).catch(function () { btn.disabled = false; btn.textContent = '🚀 开始灌入'; toast('请求失败'); });
+        toast('灌入任务已启动（' + d.entries + ' 个音源），进度见「源库」页任务条；完成后点「刷新」更新状态');
+      }).catch(function () { btn.disabled = false; toast('请求失败'); });
+  }
+  function doRevoke(targetId, entryIds, btn) {
+    var label = btn.textContent;
+    btn.disabled = true; btn.textContent = '撤回中…';
+    var body = { id: targetId };
+    if (entryIds) body.entryIds = entryIds;
+    fetch('/api/admin/push/revoke', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        btn.disabled = false; btn.textContent = label;
+        if (d.error) { toast('✗ ' + d.error); return; }
+        var removed = (d.removed || []).length;
+        toast(d.note ? d.note : ('已撤下 ' + removed + ' 个音源' + (d.failed ? '，' + d.failed + ' 个失败' : '')));
+        loadPushTargets();
+      }).catch(function () { btn.disabled = false; btn.textContent = label; toast('请求失败'); });
+  }
+  $('pushPanes').addEventListener('click', function (ev) {
+    if (ev.target.id === 'btnPushPaneRef' || ev.target.id === 'btnRevRef') { loadPushTargets(); loadPushEntries(); return; }
+    if (ev.target.id === 'btnPushDo') {
+      var ids = checkedIds('#ptImpRows input.chk-pt-imp');
+      if (!ids.length) { toast('请先勾选要灌入的音源（表头复选框可全选）'); return; }
+      if (!confirm('将把勾选的 ' + ids.length + ' 个音源灌入「' + activeTargetName() + '」？\n同名重灌=覆盖，同版本已灌自动跳过。')) return;
+      startPush(pushActiveTab, ids, ev.target);
+      return;
+    }
+    if (ev.target.id === 'btnRevSel') {
+      var rids = checkedIds('#ptRevRows input.chk-pt-rev');
+      if (!rids.length) { toast('请先勾选要撤回的音源'); return; }
+      if (!confirm('撤回所选 ' + rids.length + ' 个音源？\n会从目标服务端删除对应音源，不影响你手动添加的源。')) return;
+      doRevoke(pushActiveTab, rids, ev.target);
+      return;
+    }
+    if (ev.target.id === 'btnRevAll') {
+      var t = activeTarget();
+      var n = t ? (t.pushedList || []).length : 0;
+      if (!n) { toast('该目标暂无灌入记录'); return; }
+      if (!confirm('全部撤回？\n将从目标服务端删除本系统灌入的 ' + n + ' 个音源，不影响你手动添加的源。')) return;
+      doRevoke(pushActiveTab, null, ev.target);
+    }
   });
 
   // 导出配置（JSON 下载，剪贴板兜底）
