@@ -672,7 +672,8 @@
   var ICO_LX = '<svg viewBox="0 0 447.942 447.943" aria-hidden="true"><path fill="#5ed698" d="M203.806.482c-19.668-3.346-35.76 11.139-35.76 31.086v206.166c-11.642-4.271-24.165-6.725-37.281-6.725-59.905 0-108.469 48.566-108.469 108.473 0 59.903 48.564 108.461 108.469 108.461 34.141 0 64.54-15.82 84.406-40.482l-49.658-49.664c-15.116-15.112-11.708-28.901-9.542-34.14 2.166-5.233 9.514-17.4 30.883-17.4h18.082v-56.885c0-21.132 14.617-38.862 34.266-43.745.032-44.373.032-81.808.032-81.808 140.147 0 131.724 83.974 115.325 132.196-6.42 18.884-2.601 22.05 10.893 7.354C536.473 77.106 298.38 16.566 203.806.482z"/><path fill="#4daf7c" d="M301.061 223.876h-50.994c-3.911 0-7.574.95-10.889 2.523-8.616 4.09-14.615 12.798-14.615 22.973v76.51h-37.708c-14.082 0-17.428 8.071-7.466 18.029l46.893 46.898 31.25 31.246a25.424 25.424 0 0 0 18.033 7.474c6.523 0 13.052-2.484 18.029-7.474l78.152-78.145c9.951-9.958 6.608-18.029-7.47-18.029h-37.71v-76.51c.001-14.078-11.42-25.495-25.505-25.495z"/></svg>';
   var ICO_HOLLY = '<svg viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="hlyBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><rect width="512" height="512" rx="112" fill="url(#hlyBg)"/><g fill="#fff"><path d="M336 128 L336 304 Q336 352 296 352 Q256 352 256 312 Q256 272 296 272 Q312 272 328 280 L328 176 L240 200 L240 336 Q240 384 200 384 Q160 384 160 344 Q160 304 200 304 Q216 304 232 312 L232 168 Z"/></g></svg>';
   var ICO_RO = '<svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#0f766e"/><text x="256" y="330" font-family="Arial,\'Segoe UI\',sans-serif" font-size="190" font-weight="700" fill="#fff" text-anchor="middle">Ro</text></svg>';
-  var TAB_ICONS = { lxserver: ICO_LX, hollymusic: ICO_HOLLY, ro: ICO_RO };
+  var ICO_LEMON = '<svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#eab308"/><text x="256" y="352" font-family="\u9ed1\u4f53,\'Microsoft YaHei\',sans-serif" font-size="250" font-weight="700" fill="#fff" text-anchor="middle">\u67e0</text></svg>';
+  var TAB_ICONS = { lxserver: ICO_LX, hollymusic: ICO_HOLLY, ro: ICO_RO, lemon: ICO_LEMON };
 
   function ptTypeLabel(type) {
     for (var i = 0; i < pushTypes.length; i++) if (pushTypes[i].type === type) return pushTypes[i].label;
@@ -770,7 +771,7 @@
         }
       }
       ptShowHint();
-      var html = pushTargetsState.length ? '' : '<li class="grow-empty">暂无灌入目标，用下方表单添加（支持 LX Server / HollyMusic / Ro）</li>';
+      var html = pushTargetsState.length ? '' : '<li class="grow-empty">暂无灌入目标，用下方表单添加（支持 LX Server / HollyMusic / Ro / 柠檬音乐）</li>';
       for (var j = 0; j < pushTargetsState.length; j++) {
         var t = pushTargetsState[j];
         html += '<li><span class="lock">' + (t.enabled !== false ? '📤' : '⏸') + '</span>' +

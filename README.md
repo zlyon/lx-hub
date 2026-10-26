@@ -1,6 +1,6 @@
 # 音源猎手 · 自部署版（lx-hub）
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue) ![License](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-orange)
+![Version](https://img.shields.io/badge/version-1.3.0-blue) ![License](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-orange)
 
 [音源猎手](https://github.com/zlyon/lx-hunter) 的自部署 Web 版：一键搜索公开渠道发布的洛雪（LX Music）自定义音源，自动实测各平台可用性，可一键打包导出全部可用音源 JS 文件。只索引公开链接与元数据，不提供、不存储任何音乐内容。插件负责在 [Songloft](https://github.com/songloft-org/songloft) 中用源，本项目负责在 Web 侧发现源、验源。
 
@@ -20,13 +20,14 @@
 
 ## 音源灌入（测试阶段）
 
-后台「灌入」页可把本系统收录并实测可用的音源脚本**直推**到你自建的洛雪服务端（内容直推，目标服务端无需访问外网），支持灌入与一键撤回；同名重灌 = 覆盖，同版本已灌自动跳过。目前支持三类服务端：
+后台「灌入」页可把本系统收录并实测可用的音源脚本**直推**到你自建的洛雪服务端（内容直推，目标服务端无需访问外网），支持灌入与一键撤回；同名重灌 = 覆盖，同版本已灌自动跳过。目前支持四类服务端：
 
 | 类型 | 适用服务端 | 地址填什么 | 凭据填什么 | 用户名 |
 | --- | --- | --- | --- | --- |
 | LX Server | XCQ0607 / gefl24 及同协议版本 | `http://IP:端口` | 服务端后台管理密码（`ADMIN_PASSWORD`） | 留空即灌入公共源 |
 | HollyMusic | [redcatH/HollyMusic](https://github.com/redcatH/HollyMusic) | `http://IP:端口` | 管理员密码 | 默认 `admin` |
 | Ro | [leizi914599611-boop/ro](https://github.com/leizi914599611-boop/ro) | `http://IP:端口` | API Key（`config.yaml` 的 `auth.apiKey` 或环境变量 `RO_AUTH_APIKEY`） | 留空 |
+| 柠檬音乐 | [jia070310/lemon-muisc](https://github.com/jia070310/lemon-muisc) | `http://IP:端口` | 管理员账号的登录密码 | 默认 `admin` |
 
 ![灌入页面](docs/push-admin.png)
 
